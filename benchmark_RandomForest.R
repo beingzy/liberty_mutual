@@ -17,9 +17,10 @@ library(stringr)
 ## ############################################ ##
 ## set up environment ----------------------------
 ## ############################################ ##
-repo <- list()
-repo$root <- getwd()
-repo$data <- str_c(repo$root, "/data/")
+repo        <- list()
+repo$root   <- getwd()
+repo$data   <- str_c(repo$root, "/data/")
+repo$output <- str_c(repo$root, "/output/")
 
 set.seed(1)
 
@@ -46,7 +47,7 @@ rf <- randomForest(trainFea[, 3:34], trainFea$Hazard, ntree=1000, imp=TRUE, samp
 cat("Making predictions\n")
 submission <- data.frame(Id=test$Id)
 submission$Hazard <- predict(rf, extractFeatures(testFea[,2:33]))
-write_csv(submission, "1_random_forest_benchmark.csv")
+write_csv(submission, str_c("output", "1_random_forest_benchmark.csv"))
 
 cat("Plotting variable importance\n")
 imp <- importance(rf, type=1)
