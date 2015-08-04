@@ -63,3 +63,43 @@ p <- ggplot(featureImportance, aes(x=reorder(Feature, Importance), y=Importance)
     theme(plot.title=element_text(size=18))
 
 ggsave("2_feature_importance.png", p, height=12, width=8, units="in")
+
+
+## ################################################ ##
+## LOAD DUMMY VARAIBLE encoded data for training    ##
+## ################################################ ##
+load("runInfo.RData")
+
+trainFea <- runInfo$train_data
+newFea   <- runInfo$new_data
+
+cat("Training randomforest with data which is encoded with dummy variables\n")
+rf2 <- randomForest(trainFea[, 3:ncol(trainFea)], trainFea$Hazard
+                    , ntree=1000, imp=TRUE, sampsize=10000
+                    , do.trace=TRUE)
+
+cat("Making predictions\n")
+submission <- data.frame(Id=newFea$Id)
+submission$Hazard <- predict(rf2, newFea[, 2:ncol(newFea)])
+write_csv(submission, str_c("output/", "20150804_random_forest_benchmark.csv"))
+
+cat("Plotting variable importance\n")
+imp <- importance(rf2, type=1)
+featureImportance <- data.frame(Feature=row.names(imp), Importance=imp[,1])
+
+p <- ggplot(featureImportance, aes(x=reorder(Feature, Importance), y=Importance)) +
+  geom_bar(stat="identity", fill="#53cfff") +
+  coord_flip() +
+  theme_light(base_size=20) +
+  xlab("Importance") +
+  ylab("") +
+  ggtitle("Random Forest Feature Importance\n") +
+  theme(plot.title=element_text(size=10))
+
+ggsave("20150804_feature_importance.png", p, height=12, width=8, units="in")
+
+## export trained model
+fit_models <- list()
+fit_models$rf_n1k_dummies <- rf2
+
+save(fit_models, file="fit_models.RData")
