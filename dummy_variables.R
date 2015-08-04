@@ -13,8 +13,7 @@ library(ggplot2)
 library(readr)
 library(stringr)
 library(caret)
-library(glmnet)
-library(e1071)
+
 
 source("SumModelGini.R")
 ## ############################################ ##
@@ -44,33 +43,24 @@ cat("Data Preprocessing before modeling...")
 trainFea <- extractFeatures(train)
 testFea  <- extractFeatures(test)
 
-# cat("Training model\n")
-# rf <- randomForest(trainFea[, 3:34], trainFea$Hazard, ntree=1000, imp=TRUE, sampsize=10000, do.trace=TRUE)
+# create dummy variable to encode the 
+# 1) create dummy variable transformer
+factor_cols  <- colnames(trainFea)[sapply(trainFea, class) == "factor"]
+dummies_proc <- dummyVars(Hazard~., data=trainFea[, c("Hazard", factor_cols)])
 
-# cat("Making predictions\n")
-# submission <- data.frame(Id=test$Id)
-# submission$Hazard <- predict(rf, extractFeatures(testFea[,2:33]))
-# write_csv(submission, str_c("output", "1_random_forest_benchmark.csv"))
+# 2) transform trian data
+trainFea_dummies <- predict(dummies_proc, trainFea)
+trainFea_numeric <- trainFea[, -which(colnames(trainFea) %in% factor_cols)]
+trainFea         <- data.frame(cbind(trainFea_numeric, trainFea_dummies))
 
-# cat("Plotting variable importance\n")
-# imp <- importance(rf, type=1)
-# featureImportance <- data.frame(Feature=row.names(imp), Importance=imp[,1])
+# 3) transform test data
+testFea_dummies <- predict(dummies_proc, data.frame(Hazard=rep(1, times=nrow(testFea)), testFea[, c(factor_cols)]))
+testFea_numeric <- testFea[, -which(colnames(testFea) %in% factor_cols)]
+testFea         <- data.frame(cbind(testFea_numeric, testFea_dummies))
 
-## ################################################ ##
-## Penlaized logistic regression                    ##
-## ################################################ ##
-# kfolds     <- createMultiFolds(trainFea$Hazard, k=2, times=2)
-# fitControl <- trainControl(index=kfolds)
-#glmnetGrid <- expand.grid(alpha=c(0, 0.5, 1), lambda=exp(seq(-10, 5, 0.5)))
-# glmnetGrid <- expand.grid(alpha=c(0, 1), lambda=c(0.001, 0.5, 1))
-# cv_glm     <- train(Hazard~., data=trainFea[, -1], method="glmnet"
-#                     , verbose=TRUE, tuneGrid=glmnetGrid)
-train_idx  <- createDataPartition(trainFea$Hazard, times=1, p=.8)
-train_data <- trainFea[train_idx$Resample1, -1]
-valid_data <- trainFea[-train_idx$Resample1, -1]
+## export data for subsequent analysis
+runInfo <- list()
+runInfo$train_data <- trainFea
+runInfo$new_data   <- testFea
 
-#train svm models
-svm_linear_fit    <- svm(Hazard~., train_data, kernel="linear")
-lm_fit     <- lm(Hazard~., train_data)
-prediction <- predict(lm_fit, valid_data)
-
+save(runInfo, file="runInfo.RData")
